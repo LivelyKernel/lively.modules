@@ -25,7 +25,7 @@ var dir = System.decanonicalize("lively.modules/tests/"),
 describe("instrumentation", () => {
 
   let S, module1, module2, module3, module4;
-  beforeEach(() => {
+  beforeEach(async () => {
     S = getSystem("test", {baseURL: dir});
     module1 = module(S, testProjectDir + "file1.js");
     module2 = module(S, testProjectDir + "file2.js");
@@ -33,13 +33,13 @@ describe("instrumentation", () => {
     module4 = module(S, testProjectDir + "file4.js");
     try { delete S.global.z; } catch (e) {}
     try { delete S.global.zzz; } catch (e) {}
-    return createFiles(testProjectDir, testProjectSpec)
-      .then(() => S.import(testProjectDir + "file1.js"));
+    await createFiles(testProjectDir, testProjectSpec);
+    await S.import(testProjectDir + "file1.js")
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     removeSystem("test");
-    return removeDir(testProjectDir);
+    await removeDir(testProjectDir);
   });
 
   it("gets access to internal module state", async () => {
@@ -93,6 +93,18 @@ describe("instrumentation", () => {
         pathInPackage: "./file4.js"
       });
     });
+
+    it("in mutually dependend modules", async () => {
+      await createFiles(testProjectDir, {
+        "a.js": "import { Bar } from './b.js'; export class Foo { test() { return 'Foo'; } };",
+        "b.js": "import { Foo } from './a.js'; export class Bar extends Foo { test() { return super.test() + 'Bar'; } };",
+      });
+      var { Foo } = await S.import(`${testProjectDir}a.js`),
+          { Bar } = await S.import(`${testProjectDir}b.js`);
+      expect(Bar[Symbol.for("lively-instance-superclass")]).equals(Foo);
+      expect(new Bar().test()).equals("FooBar");
+    });
+
   });
 
 });
