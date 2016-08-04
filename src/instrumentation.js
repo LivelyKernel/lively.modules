@@ -34,7 +34,8 @@ var exceptions = [
       id => string.include(id, "acorn/src"),
       id => string.include(id, "babel-core/browser.js") || string.include(id, "system.src.js") || string.include(id, "systemjs-plugin-babel"),
       // id => lang.string.include(id, "lively.ast.es6.bundle.js"),
-      id => id.slice(-3) !== ".js"
+      id => id.slice(-3) !== ".js",
+      (id, load) => load.metadata.loader
     ],
     pendingConfigs = [], configInitialized = false,
     esmFormatCommentRegExp = /['"]format (esm|es6)['"];/,
@@ -150,7 +151,7 @@ function customTranslate(proceed, load) {
 
   var System = this, debug = System.debug;
 
-  if (exceptions.some(exc => exc(load.name))) {
+  if (exceptions.some(exc => exc(load.name, load))) {
     debug && console.log("[lively.modules customTranslate ignoring] %s", load.name);
     return proceed(load);
   }

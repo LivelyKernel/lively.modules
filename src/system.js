@@ -115,7 +115,8 @@ function prepareSystem(System, config) {
     System.config({
       map: {
         'plugin-babel': initialSystem.map["plugin-babel"],
-        'systemjs-babel-build': initialSystem.map["systemjs-babel-build"]
+        'systemjs-babel-build': initialSystem.map["systemjs-babel-build"],
+        'lively.modules': initialSystem.decanonicalize("lively.modules/")
       },
       transpiler: initialSystem.transpiler,
       babelOptions: Object.assign(initialSystem.babelOptions || {}, config.babelOptions)

@@ -20378,7 +20378,7 @@ var nodes = Object.freeze({
     //   }
     // }
 
-    return funcExpr({ id: name ? id(name) : null }, [], varDecl("firstArg", member("arguments", literal(0))), ifStmt(binaryExpr(id("firstArg"), "&&", member("firstArg", funcCall(member("Symbol", "for"), literal("lively-instance-restorer")), true)), block(), block(exprStmt(funcCall(member(member("this", funcCall(member("Symbol", "for"), literal("lively-instance-initialize")), true), "apply"), id("this"), id("arguments"))))));
+    return funcExpr({ id: name ? id(name) : null }, ["__first_arg__"], ifStmt(binaryExpr(id("__first_arg__"), "&&", member("__first_arg__", funcCall(member("Symbol", "for"), literal("lively-instance-restorer")), true)), block(), block(exprStmt(funcCall(member(member("this", funcCall(member("Symbol", "for"), literal("lively-instance-initialize")), true), "apply"), id("this"), id("arguments"))))));
   }
 
   // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
@@ -23926,7 +23926,9 @@ var categorizer = Object.freeze({
   function requireMap$1(System) {
     if (System.loads) {
       var store = System.loads,
-          modNames = lively_lang.arr.uniq(Object.keys(loadedModules$1(System)).concat(Object.keys(store)));
+          modNames = lively_lang.arr.uniq(Object.keys(loadedModules$1(System)).concat(Object.keys(store))).filter(function (modName) {
+        return modName.indexOf('!') < 0;
+      });
       return modNames.reduce(function (requireMap, k) {
         var depMap = store[k] ? store[k].depMap : {};
         requireMap[k] = Object.keys(depMap).map(function (localName) {
@@ -23969,6 +23971,8 @@ var categorizer = Object.freeze({
   // id => lang.string.include(id, "lively.ast.es6.bundle.js"),
   function (id) {
     return id.slice(-3) !== ".js";
+  }, function (id, load) {
+    return load.metadata.loader;
   }];
   var esmFormatCommentRegExp = /['"]format (esm|es6)['"];/;
   var cjsFormatCommentRegExp = /['"]format cjs['"];/;
@@ -24069,7 +24073,7 @@ var categorizer = Object.freeze({
         debug = System.debug;
 
     if (exceptions.some(function (exc) {
-      return exc(load.name);
+      return exc(load.name, load);
     })) {
       debug && console.log("[lively.modules customTranslate ignoring] %s", load.name);
       return proceed(load);
@@ -25540,38 +25544,16 @@ var categorizer = Object.freeze({
         // all cases b/c modules once loaded by the loaded get cached and System.fetch
         // returns "" in those cases
 
+        // cs 2016-08-01:
+        // We cannot use System.fetch directly but it is possible to use a
+        // text loader plugin to get the original source code. Thereby, any
+        // fetch hooks get respected (e.g. for changesets)
+
         if (this.id === "@empty") return Promise.resolve("");
-
         if (this._source) return Promise.resolve(this._source);
-        if (this.id.match(/^http/) && this.System.global.fetch) {
-          return this.System.global.fetch(this.id).then(function (res) {
-            return res.text();
-          });
-        }
-
-        if (this.id.match(/^file:/) && this.System.get("@system-env").node) {
-          var _ret = function () {
-            var path = _this2.id.replace(/^file:\/\//, "");
-            return {
-              v: new Promise(function (resolve, reject) {
-                return _this2.System._nodeRequire("fs").readFile(path, function (err, content) {
-                  return err ? reject(err) : resolve(_this2._source = String(content));
-                });
-              })
-            };
-          }();
-
-          if ((typeof _ret === "undefined" ? "undefined" : _typeof(_ret)) === "object") return _ret.v;
-        }
-
-        if (this.id.match(/^lively:/) && typeof $world !== "undefined") {
-          // This needs to go into a separate place for "virtual" lively modules
-          var morphId = lively_lang.arr.last(this.id.split("/"));
-          var m = $world.getMorphById(morphId);
-          return Promise.resolve(m ? m.textContent : "");
-        }
-
-        return Promise.reject(new Error("Cannot retrieve source for " + this.id));
+        return this.System.import(this.id + "!lively.modules/src/text-loader.js").then(function (src) {
+          return _this2._source = src;
+        });
       }
     }, {
       key: "ast",
@@ -25715,7 +25697,7 @@ var categorizer = Object.freeze({
                   m = this.System.get(this.id);
 
                   if (m) {
-                    _context4.next = 5;
+                    _context4.next = 6;
                     break;
                   }
 
@@ -25725,8 +25707,9 @@ var categorizer = Object.freeze({
                 case 4:
                   m = _context4.sent;
 
-                case 5:
                   lively_notifications.emit("lively.modules/moduleloaded", { module: this.id }, Date.now(), this.System);
+
+                case 6:
                   return _context4.abrupt("return", m);
 
                 case 7:
@@ -26794,7 +26777,8 @@ var categorizer = Object.freeze({
       System.config({
         map: {
           'plugin-babel': initialSystem.map["plugin-babel"],
-          'systemjs-babel-build': initialSystem.map["systemjs-babel-build"]
+          'systemjs-babel-build': initialSystem.map["systemjs-babel-build"],
+          'lively.modules': initialSystem.decanonicalize("lively.modules/")
         },
         transpiler: initialSystem.transpiler,
         babelOptions: Object.assign(initialSystem.babelOptions || {}, config.babelOptions)
