@@ -471,9 +471,9 @@ async function customTranslate(proceed, load) {
         console.error(`[lively.modules customTranslate] failed storing module cache: ${e.stack}`);
       }
     } else if (useCache && indexdb && isEsm) {
-      var cache = System._livelyModulesTranslationCache
-               || (System._livelyModulesTranslationCache = new BrowserModuleTranslationCache());
       try {
+        var cache = System._livelyModulesTranslationCache
+          || (System._livelyModulesTranslationCache = new BrowserModuleTranslationCache());
         await cache.cacheModuleSource(load.name, hashForCache, translated)
         debug && console.log("[lively.modules customTranslate] stored cached version for %s", load.name);
       } catch (e) {
